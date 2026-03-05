@@ -8,12 +8,15 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     client: "",
-    documentType: "Relatório OHSAS",
+    documentType: "Relatório",
     title: "",
     reference: ""
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<any>(null);
+
+  // URL DO BACKEND via Env (para Vercel + Hospedagem de API futura) ou Localhost para dev
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -32,7 +35,6 @@ export default function Home() {
     setIsProcessing(true);
     try {
       const data = new FormData();
-      // user_id provisório; virá do Auth (Supabase) futuramente
       data.append("user_id", "admin-demo-123");
       data.append("client", formData.client);
       data.append("document_type", formData.documentType);
@@ -40,15 +42,18 @@ export default function Home() {
       data.append("reference", formData.reference);
       data.append("file", file);
 
-      // Chamada à API FastAPI Local (Por padrão a porta é 8000)
-      const res = await axios.post("http://localhost:8000/api/v1/documents/convert", data, {
+      const res = await axios.post(`${API_URL}/api/v1/documents/convert`, data, {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
       setResult(res.data.data);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao converter o documento.");
+    } catch (error: any) {
+      console.error("Erro completo:", error);
+      if (error.message === "Network Error") {
+        alert(`Falha de Conexão: O Frontend não conseguiu alcançar a API em ${API_URL}. Se você estiver testando pela Vercel pública, lembre-se que navegadores bloqueiam requisições pro seu Localhost (Mixed Content/CORS). Teste via http://localhost:3000 ou hospede seu backend FastAPI!`);
+      } else {
+        alert("Erro ao processar a requisição: " + (error.response?.data?.detail || error.message));
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -56,162 +61,128 @@ export default function Home() {
 
   const loadPreview = async () => {
     if (!result?.document_id) return;
-
     try {
-      const response = await axios.get(`http://localhost:8000/api/v1/documents/preview/${result.document_id}`, {
-        responseType: "blob" // Necessário para baixar arquivo binário pro Docx-Preview
+      const response = await axios.get(`${API_URL}/api/v1/documents/preview/${result.document_id}`, {
+        responseType: "blob"
       });
-
       const docxContainer = document.getElementById("docx-preview-container");
       if (docxContainer) {
-        docxContainer.innerHTML = ""; // limpa preview anterior
+        docxContainer.innerHTML = "";
         const docx = await import("docx-preview");
         await docx.renderAsync(response.data, docxContainer);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Erro ao carregar renderização do DOCX");
+      alert("Erro ao carregar renderização do DOCX no navegador.");
     }
   };
 
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-900 dark:via-black dark:to-slate-800 p-8 pt-20">
+    <div className="min-h-screen bg-gray-50 flex flex-col p-6 pt-24">
 
-      {/* Header Premium */}
-      <div className="max-w-4xl mx-auto text-center mb-12">
-        <div className="inline-flex items-center justify-center p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl mb-4 shadow-sm">
-          <FileText className="w-8 h-8" />
-        </div>
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">
-          Conversor Documental Analítico
+      {/* Header Minimalista */}
+      <div className="max-w-3xl mx-auto text-center mb-16">
+        <h1 className="text-4xl font-semibold tracking-tight text-gray-900 mb-3">
+          Conversor de Documentos
         </h1>
-        <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-          Converta formulários e relatórios em PDF do chão de fábrica para DOCX perfeitamente editáveis, preservando layouts, imagens e tabelas complexas.
+        <p className="text-lg text-gray-500 font-light">
+          Transforme PDFs complexos em DOCX com preservação impecável de layout.
         </p>
       </div>
 
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-10">
 
-        {/* Formulário Interativo */}
-        <div className="glass rounded-3xl p-8 transition-all hover:shadow-2xl">
-          <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-slate-200">
-            Novo Processamento
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cliente / Departamento</label>
+        {/* Formulário - Clean Card */}
+        <div className="md:col-span-7 bg-white border border-gray-200 shadow-sm rounded-2xl p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Cliente / Organização</label>
               <input
-                required
-                name="client"
-                value={formData.client}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/50 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                placeholder="Ex: Refinaria XPTO"
+                required name="client" value={formData.client} onChange={handleInputChange}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow text-gray-900"
+                placeholder="Exemplo Corp."
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de Documento</label>
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Tipo</label>
                 <select
-                  name="documentType"
-                  value={formData.documentType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/50 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                  name="documentType" value={formData.documentType} onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 bg-white"
                 >
-                  <option>Relatório OHSAS</option>
-                  <option>Auditoria 5S</option>
-                  <option>Ordem de Produção</option>
-                  <option>Certificado HST</option>
+                  <option>Relatório</option>
+                  <option>Auditoria</option>
+                  <option>Ordem de Serviço</option>
+                  <option>Certificado</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Referência (Opcional)</label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Código de Referência</label>
                 <input
-                  name="reference"
-                  value={formData.reference}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/50 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                  placeholder="Ex: #REF-4091"
+                  name="reference" value={formData.reference} onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow text-gray-900"
+                  placeholder="Opcional"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Título do Documento</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Título do Arquivo</label>
               <input
-                required
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/50 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                placeholder="Ex: Inspeção Visual Caldeira 01"
+                required name="title" value={formData.title} onChange={handleInputChange}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow text-gray-900"
+                placeholder="Ex: Análise Estrutural 2026"
               />
             </div>
 
-            {/* Drag & Drop zone simplificada */}
-            <div className="mt-4 border-2 border-dashed border-purple-300 dark:border-purple-800 rounded-2xl p-8 text-center bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors cursor-pointer relative">
-              <UploadCloud className="w-10 h-10 mx-auto text-purple-500 mb-3" />
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {file ? file.name : "Clique ou arraste um PDF aqui"}
+            {/* Upload Area Minimalista */}
+            <div className="mt-8 border border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer relative group">
+              <UploadCloud className="w-8 h-8 mx-auto text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
+              <p className="text-sm font-medium text-gray-700">
+                {file ? file.name : "Selecionar arquivo PDF"}
               </p>
-              <p className="text-xs text-slate-500 mt-1">Apenas .pdf até 15MB</p>
+              <p className="text-xs text-gray-400 mt-1">Até 15MB (.pdf)</p>
               <input
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
+                type="file" accept=".pdf" onChange={handleFileChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
             </div>
 
             <button
-              type="submit"
-              disabled={isProcessing}
-              className="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-lg shadow-lg shadow-purple-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+              type="submit" disabled={isProcessing}
+              className="w-full py-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              {isProcessing ? (
-                <><Clock className="animate-spin w-5 h-5" /> Processando IA...</>
-              ) : (
-                "Gerar Documento (DOCX)"
-              )}
+              {isProcessing ? <><Clock className="animate-spin w-4 h-4" /> Convertendo...</> : "Converter para DOCX"}
             </button>
           </form>
         </div>
 
-        {/* Painel de Resultados & Preview */}
-        <div className="flex flex-col gap-6">
-          {/* Status Box */}
-          <div className="glass rounded-3xl p-8 flex-1 flex flex-col items-center justify-center text-center min-h-[300px]">
+        {/* Quadro Lateral Auxiliar / Resultados */}
+        <div className="md:col-span-5 flex flex-col gap-6">
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-8 flex-1 flex flex-col items-center justify-center text-center">
             {!result ? (
-              <div className="text-slate-400 dark:text-slate-600 flex flex-col items-center gap-4">
-                <FileText className="w-16 h-16 opacity-30" />
-                <p>O resultado da conversão aparecerá aqui.</p>
+              <div className="text-gray-400 flex flex-col items-center gap-3">
+                <FileText className="w-12 h-12 text-gray-200" />
+                <p className="text-sm">Os resultados do processamento aparecerão aqui.</p>
               </div>
             ) : (
-              <div className="w-full animate-in fade-in zoom-in duration-500 flex flex-col items-center">
-                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-6">
-                  <CheckCircle className="w-10 h-10" />
+              <div className="w-full animate-in fade-in zoom-in duration-300 flex flex-col items-center">
+                <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="w-8 h-8" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Sucesso!</h3>
-                <p className="text-slate-600 dark:text-slate-400 mb-6">
-                  O layout de tabelas e imagens foi preservado de forma nativa. <br />
-                  Tempo de ML: <span className="font-mono text-purple-600">{result.processing_time?.toFixed(2)}s</span>
+                <h3 className="text-xl font-semibold text-gray-900 mb-1">Concluído</h3>
+                <p className="text-sm text-gray-500 mb-8 border-b border-gray-100 pb-6 w-full">
+                  Tempo no motor analítico: <span className="font-mono text-gray-900">{result.processing_time?.toFixed(2)}s</span>
                 </p>
 
                 <div className="flex flex-col w-full gap-3">
-                  <button
-                    onClick={loadPreview}
-                    className="w-full py-3 rounded-xl border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
-                  >
-                    Visualizar online (Modal de Revisão)
+                  <button onClick={loadPreview} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm">
+                    Revisar no Navegador
                   </button>
-                  <a
-                    href={`http://localhost:8000${result.download_url}`}
-                    download
-                    className="w-full py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold shadow-md hover:bg-slate-800 dark:hover:bg-slate-100 transition-all block text-center"
-                  >
-                    Fazer Download em (.docx)
+                  <a href={`${API_URL}${result.download_url}`} download className="w-full py-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm transition-colors text-sm text-center">
+                    Baixar Arquivo
                   </a>
                 </div>
               </div>
@@ -221,18 +192,16 @@ export default function Home() {
 
       </div>
 
-      {/* Modal / Container de Preview JS Puro */}
-      <div id="docx-preview-wrapper" className={`max-w-5xl mx-auto mt-12 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 ${result ? 'block' : 'hidden'}`}>
-        <div className="border-b border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between pointer-events-none">
-          <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-500" /> Preview da Estrutura Convertida
-          </h3>
-          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">JS View (Fidelidade Simples)</span>
+      {/* Container de Preview Javascript */}
+      <div id="docx-preview-wrapper" className={`max-w-5xl w-full mx-auto mt-10 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${result ? 'block' : 'hidden'}`}>
+        <div className="border-b border-gray-100 p-4 bg-gray-50 flex items-center justify-between">
+          <span className="font-medium text-gray-700 text-sm flex items-center gap-2">
+            <FileText className="w-4 h-4 text-blue-500" /> Visualização Rápida JavaScript
+          </span>
         </div>
-        <div id="docx-preview-container" className="min-h-[600px] w-full bg-slate-100 dark:bg-slate-800 p-8 overflow-auto">
-          {/* Injetado via React docx-preview */}
-          <div className="flex items-center justify-center h-full text-slate-400">
-            Clique em "Visualizar online" para renderizar o binário gerado.
+        <div id="docx-preview-container" className="min-h-[500px] w-full bg-white p-8 overflow-auto">
+          <div className="flex items-center justify-center h-full text-gray-300 text-sm">
+            Clique em "Revisar" para carregar.
           </div>
         </div>
       </div>

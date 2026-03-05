@@ -27,15 +27,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <nav className="fixed top-0 w-full z-50 glass border-b border-slate-200 dark:border-slate-800">
+        <nav className="fixed top-0 w-full z-50 bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
-              <div className="flex shrink-0 items-center font-bold text-lg text-slate-800 dark:text-white">
-                Analytic Converter
+              <div className="flex shrink-0 items-center font-bold text-lg text-gray-900 tracking-tight">
+                Conversor Analítico
               </div>
-              <div className="flex gap-4">
-                <a href="/" className="text-slate-600 hover:text-purple-600 dark:text-slate-300 dark:hover:text-purple-400 font-medium transition-colors">Converter</a>
-                <a href="/dashboard" className="text-slate-600 hover:text-purple-600 dark:text-slate-300 dark:hover:text-purple-400 font-medium transition-colors">Dashboard</a>
+              <div className="flex gap-6">
+                <a href="/" className="text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors">Nova Conversão</a>
+                <a href="/dashboard" className="text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors">Resultados</a>
               </div>
             </div>
           </div>
