@@ -56,10 +56,28 @@ async def convert_document(
         
         processing_time = (datetime.now() - start_time).total_seconds()
         
-        # Em um cenário completo, salvaríamos as infos no DB aqui usando SQLAlchemy:
-        # new_conversion = ConversionModel(id=doc_id, user_id=user_id, client=client, ...)
-        # db.add(new_conversion)
-        # db.commit()
+        from app.supabase_client import supabase
+        
+        if supabase:
+            try:
+                # Salvar no Supabase
+                supabase.table("document_conversions").insert({
+                    "id": doc_id,
+                    "user_id": user_id,
+                    "client": client,
+                    "document_type": document_type,
+                    "title": title,
+                    "reference": reference,
+                    "original_pdf_path": pdf_path,
+                    "converted_docx_path": docx_path,
+                    "status": "COMPLETED",
+                    "metadata": {
+                        "processing_time_sec": processing_time,
+                        "original_filename": file.filename
+                    }
+                }).execute()
+            except Exception as db_err:
+                print(f"Aviso: Erro ao salvar no Supabase: {db_err}")
         
         return {
             "status": "success",
