@@ -3,10 +3,10 @@ backend/venv/
 backend/__pycache__/
 storage/
 
-# Frontend
-frontend/node_modules/
-frontend/.next/
-frontend/out/
+# Frontend (agora na raiz)
+node_modules/
+.next/
+out/
 
 # Env Files
 .env
