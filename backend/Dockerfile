@@ -17,8 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar o resto da aplicação
 COPY . .
 
-# Expor a porta FastAPI
+# Expor a porta FastAPI (Apenas documentar, o Render passa dinamicamente pela env $PORT)
 EXPOSE 8000
 
-# Iniciar Uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Iniciar Uvicorn usando a variável $PORT (o Render geralmente entrega na porta 10000)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
