@@ -39,7 +39,7 @@ pydantic_core==2.41.5
 Pygments==2.19.2
 pyiceberg==0.10.0
 PyJWT==2.11.0
-PyMuPDF==1.26.5
+PyMuPDF==1.23.26
 pyparsing==3.3.2
 pyroaring==1.0.3
 python-dateutil==2.9.0.post0
