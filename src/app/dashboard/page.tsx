@@ -6,7 +6,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Legend
 } from "recharts";
-import { Activity, Users, FileText, Search, Download } from "lucide-react";
+import { Activity, Users, FileText, Search, Download, X } from "lucide-react";
+import axios from "axios";
 
 export default function Dashboard() {
     const [stats, setStats] = useState<any>({
@@ -18,6 +19,10 @@ export default function Dashboard() {
     });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // Modal state
+    const [previewDoc, setPreviewDoc] = useState<any>(null);
+    const [isPreviewModeLoading, setIsPreviewModeLoading] = useState(false);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -74,6 +79,32 @@ export default function Dashboard() {
         doc.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
         doc.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleOpenPreview = async (doc: any) => {
+        setPreviewDoc(doc);
+        setIsPreviewModeLoading(true);
+
+        try {
+            const response = await axios.get(`${API_URL}/api/v1/documents/preview/${doc.id}`, {
+                responseType: "blob"
+            });
+            const docxContainer = document.getElementById("docx-preview-modal-container");
+            if (docxContainer) {
+                docxContainer.innerHTML = "";
+                const docx = await import("docx-preview");
+                await docx.renderAsync(response.data, docxContainer);
+            }
+        } catch (err: any) {
+            console.error(err);
+            alert("Erro ao renderizar DOCX online.");
+        } finally {
+            setIsPreviewModeLoading(false);
+        }
+    };
+
+    const closePreview = () => {
+        setPreviewDoc(null);
+    };
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -214,8 +245,15 @@ export default function Dashboard() {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900">{doc.client}</td>
                                         <td className="px-6 py-4">
-                                            <p className="font-medium text-gray-900 truncate max-w-[200px]" title={doc.title}>{doc.title}</p>
-                                            <p className="text-xs text-gray-400 mt-0.5">{doc.reference || '--'}</p>
+                                            <button
+                                                onClick={() => handleOpenPreview(doc)}
+                                                className="text-left group focus:outline-none"
+                                            >
+                                                <p className="font-medium text-blue-600 hover:text-blue-800 underline truncate max-w-[200px]" title={doc.title}>
+                                                    {doc.title}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-0.5 group-hover:text-blue-500">{doc.reference || '--'}</p>
+                                            </button>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-md">
@@ -224,8 +262,8 @@ export default function Dashboard() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${doc.status === 'COMPLETED' ? 'bg-green-50 text-green-700' :
-                                                    doc.status === 'FAILED' ? 'bg-red-50 text-red-700' :
-                                                        'bg-yellow-50 text-yellow-700'
+                                                doc.status === 'FAILED' ? 'bg-red-50 text-red-700' :
+                                                    'bg-yellow-50 text-yellow-700'
                                                 }`}>
                                                 {doc.status}
                                             </span>
@@ -249,6 +287,43 @@ export default function Dashboard() {
                         </table>
                     </div>
                 </div>
+
+                {/* Modal de Preview Interativo DOCX */}
+                {previewDoc && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl md:h-[85vh] h-[95vh] flex flex-col overflow-hidden">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/80">
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <FileText className="w-5 h-5 text-blue-600" />
+                                        {previewDoc.title}
+                                    </h3>
+                                    <p className="text-xs text-gray-500 ml-7">Visualização rápida do layout transformado ({previewDoc.document_type})</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <a href={`${API_URL}/api/v1/documents/download/${previewDoc.id}`} download className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                        <Download className="w-4 h-4" /> Baixar
+                                    </a>
+                                    <button onClick={closePreview} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-colors focus:outline-none">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-auto bg-gray-100 p-8 relative">
+                                {isPreviewModeLoading && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100/90 z-10 backdrop-blur-[2px]">
+                                        <Activity className="w-8 h-8 text-blue-500 animate-pulse mb-3" />
+                                        <p className="text-gray-600 font-medium text-sm">Baixando binário e renderizando JS DOCX...</p>
+                                    </div>
+                                )}
+                                {/* Container do Canvas do JS Preview */}
+                                <div id="docx-preview-modal-container" className="w-full min-h-[600px] bg-white shadow-sm border border-gray-200 p-4 rounded-xl">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>
