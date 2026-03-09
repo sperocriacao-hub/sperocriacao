@@ -178,12 +178,26 @@ export default function Home() {
                 </p>
 
                 <div className="flex flex-col w-full gap-3">
-                  <button onClick={loadPreview} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm">
+                  <button onClick={loadPreview} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm focus:outline-none">
                     Revisar no Navegador
                   </button>
-                  <a href={`${API_URL}${result.download_url}`} download className="w-full py-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm transition-colors text-sm text-center">
+                  <button onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = `${API_URL}${result.download_url}`; // Backend returns redirect, valid for standard hrefs, but may trigger cross-origin blank tab.
+                    // Alternativa: Fetch blob igual ao history.tsx
+                    axios.get(`${API_URL}${result.download_url}`, { responseType: 'blob' })
+                      .then(res => {
+                        const url = window.URL.createObjectURL(new Blob([res.data]));
+                        link.href = url;
+                        link.setAttribute('download', `${formData.title || 'documento'}.docx`);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.parentNode?.removeChild(link);
+                      })
+                      .catch(() => alert('Erro ao baixar documento diretamente.'));
+                  }} className="w-full py-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm transition-colors text-sm text-center focus:outline-none">
                     Baixar Arquivo
-                  </a>
+                  </button>
                 </div>
               </div>
             )}

@@ -49,19 +49,25 @@ async def convert_document(
     start_time = datetime.now()
     
     try:
-        # A lib pdf2docx analisa a estrutura de blocos e reconstrói tabelas e parágrafos
+        # A lib pdf2docx analisa a estrutura de blocos e reconstrói tabelas e parágrafos.
+        # Ajustes de parâmetros para ignorar imagens soltas/fundo que causam páginas brancas ou perda de layout.
+        # Usamos multi_processing e debug_mode disabled para ganhar velocidade.
         cv = Converter(pdf_path)
-        cv.convert(docx_path, start=0, end=None)
+        cv.convert(docx_path, start=0, end=None, connected_border=False, debug=False)
         cv.close()
         
         processing_time = (datetime.now() - start_time).total_seconds()
         
-        from app.supabase_client import supabase
+        from app.supabase_client import supabase, upload_to_storage
         
         if supabase:
             try:
-                # Salvar no Supabase
-                supabase.table("document_conversions").insert({
+                # Faz o upload dos arquivos para o Supabase Storage (Buckets)
+                # O bucket name precisa ser criado no Dashboard ("documents")
+                await upload_to_storage("documents", pdf_path, f"pdfs/{pdf_filename}", "application/pdf")
+                await upload_to_storage("documents", docx_path, f"docx/{docx_filename}", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+                # Salvar no Supabase (Base de Dados)
                     "id": doc_id,
                     "user_id": user_id,
                     "client": client,
@@ -77,7 +83,13 @@ async def convert_document(
                     }
                 }).execute()
             except Exception as db_err:
-                print(f"Aviso: Erro ao salvar no Supabase: {db_err}")
+                print(f"Aviso: Erro ao salvar no Supabase ou Storage: {db_err}")
+                
+        # Limpar os ficheiros fisicos do HD efémero para economizar espaco no Render
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        if os.path.exists(docx_path):
+            os.remove(docx_path)
         
         return {
             "status": "success",
@@ -91,14 +103,29 @@ async def convert_document(
         }
         
     except Exception as e:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        if os.path.exists(docx_path):
+            os.remove(docx_path)
         raise HTTPException(status_code=500, detail=f"Erro na conversão: {str(e)}")
 
 
 @router.get("/preview/{doc_id}")
 async def get_preview(doc_id: str):
+    from app.supabase_client import get_signed_url
+    
+    # 1. Tentar primeiro obter a URL assinada direto do Supabase Storage
+    # Os ficheiros são guardados no Bucket "documents" na pasta "docx"
+    signed_url = get_signed_url("documents", f"docx/{doc_id}.docx")
+    
+    if signed_url:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=signed_url)
+        
+    # 2. Fallback caso o ficheiro esteja no disco local momentaneamente ou haja erro
     docx_path = os.path.join(CONVERTED_DIR, f"{doc_id}.docx")
     if not os.path.exists(docx_path):
-        raise HTTPException(status_code=404, detail="Documento não encontrado")
+        raise HTTPException(status_code=404, detail="Documento não encontrado na nuvem nem no disco (limite efêmero).")
     
     return FileResponse(
         docx_path, 
