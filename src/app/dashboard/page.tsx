@@ -145,7 +145,6 @@ export default function Dashboard() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                         <div>
                             <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">Painel Analítico</h1>
-                            <p className="text-gray-500 text-sm mt-1">Acompanhamento e KPIs do motor de conversão PDF para DOCX.</p>
                         </div>
 
                         <div className="bg-white border border-gray-200 px-6 py-4 rounded-xl flex items-center gap-4 shadow-sm">

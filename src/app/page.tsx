@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { UploadCloud, FileText, CheckCircle, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { UploadCloud, FileText, CheckCircle, Clock, Plus, X } from "lucide-react";
 import axios from "axios";
+import { supabase } from "@/lib/supabaseClient";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+  const [documentTypes, setDocumentTypes] = useState<any[]>([]);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [newType, setNewType] = useState("");
+  const [isAddingType, setIsAddingType] = useState(false);
+
   const [formData, setFormData] = useState({
     client: "",
-    documentType: "Relatório",
+    documentType: "",
     title: "",
     reference: ""
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchDocumentTypes() {
+      if (!supabase) return;
+      const { data, error } = await supabase.from('document_types').select('*').order('name');
+      if (data && !error) {
+        setDocumentTypes(data);
+        if (data.length > 0 && !formData.documentType) {
+          setFormData(prev => ({ ...prev, documentType: data[0].name }));
+        }
+      }
+    }
+    fetchDocumentTypes();
+  }, [formData.documentType]);
 
   // URL DO BACKEND via Env (para Vercel + Hospedagem de API futura) ou Localhost para dev
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -26,7 +46,38 @@ export default function Home() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (e.target.name === "documentType" && e.target.value === "ADD_NEW") {
+      setShowTypeModal(true);
+      // Reset to previous value to avoid actually selecting ADD_NEW
+      e.target.value = formData.documentType;
+      return;
+    }
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAddDocumentType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !newType.trim()) return;
+    setIsAddingType(true);
+
+    // First, insert in Supabase
+    const { data, error } = await supabase
+      .from('document_types')
+      .insert({ name: newType.trim() })
+      .select()
+      .single();
+
+    setIsAddingType(false);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao adicionar tipo de documento.");
+    } else if (data) {
+      setDocumentTypes(prev => [...prev, data]);
+      setFormData({ ...formData, documentType: data.name });
+      setShowTypeModal(false);
+      setNewType("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,9 +139,6 @@ export default function Home() {
           <h1 className="text-4xl font-semibold tracking-tight text-gray-900 mb-3">
             Conversor de Documentos
           </h1>
-          <p className="text-lg text-gray-500 font-light">
-            Transforme PDFs complexos em DOCX com preservação impecável de layout.
-          </p>
         </div>
 
         <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-10">
@@ -115,10 +163,13 @@ export default function Home() {
                     name="documentType" value={formData.documentType} onChange={handleInputChange}
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 bg-white"
                   >
-                    <option>Relatório</option>
-                    <option>Auditoria</option>
-                    <option>Ordem de Serviço</option>
-                    <option>Certificado</option>
+                    {documentTypes.map(t => (
+                      <option key={t.id} value={t.name}>{t.name}</option>
+                    ))}
+                    {documentTypes.length === 0 && <option value="Relatório">Relatório</option>}
+                    <option value="ADD_NEW" className="font-semibold text-blue-600 bg-blue-50">
+                      + Cadastrar Novo Tipo
+                    </option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -227,6 +278,37 @@ export default function Home() {
         </div>
 
       </div>
+
+      {/* Modal para Adicionar Novo Tipo */}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-semibold text-gray-900 text-lg">Novo Tipo de Documento</h3>
+              <button onClick={() => setShowTypeModal(false)} className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full p-1.5 transition-colors focus:outline-none">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddDocumentType}>
+              <div className="space-y-1.5 mb-6">
+                <label className="text-sm font-medium text-gray-700">Nome do Tipo</label>
+                <input
+                  type="text" autoFocus required value={newType} onChange={(e) => setNewType(e.target.value)}
+                  placeholder="Ex: Faturação"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 transition-shadow"
+                />
+              </div>
+              <button
+                type="submit" disabled={isAddingType || !newType.trim()}
+                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {isAddingType ? <Clock className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Guardar Tipo
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }
