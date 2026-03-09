@@ -113,16 +113,22 @@ async def convert_document(
 
 @router.get("/preview/{doc_id}")
 async def get_preview(doc_id: str):
-    from app.supabase_client import get_signed_url
-    
-    # 1. Tentar primeiro obter a URL assinada direto do Supabase Storage
-    # Os ficheiros são guardados no Bucket "documents" na pasta "docx"
-    signed_url = get_signed_url("documents", f"docx/{doc_id}.docx")
-    
-    if signed_url:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=signed_url)
-        
+    from app.supabase_client import supabase
+    from fastapi.responses import Response
+
+    if supabase:
+        try:
+            # Baixa o ficheiro binário diretamente do bucket de forma síncrona/segura
+            file_data = supabase.storage.from_("documents").download(f"docx/{doc_id}.docx")
+            if file_data:
+                return Response(
+                    content=file_data,
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f"attachment; filename={doc_id}.docx"}
+                )
+        except Exception as strg_err:
+            print(f"Supabase storage miss ou erro: {strg_err}")
+            
     # 2. Fallback caso o ficheiro esteja no disco local momentaneamente ou haja erro
     docx_path = os.path.join(CONVERTED_DIR, f"{doc_id}.docx")
     if not os.path.exists(docx_path):
