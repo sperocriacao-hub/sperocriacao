@@ -63,12 +63,13 @@ export default function Home() {
     if (!result?.document_id) return;
     try {
       const response = await axios.get(`${API_URL}/api/v1/documents/preview/${result.document_id}`, {
-        responseType: "blob"
+        responseType: "arraybuffer"
       });
       const docxContainer = document.getElementById("docx-preview-container");
       if (docxContainer) {
         docxContainer.innerHTML = "";
         const docx = await import("docx-preview");
+        // docx-preview aceita blob ou arrayBuffer. O arraybuffer costuma ser mais infalível no render web
         await docx.renderAsync(response.data, docxContainer);
       }
     } catch (err: any) {
@@ -183,18 +184,21 @@ export default function Home() {
                   </button>
                   <button onClick={() => {
                     const link = document.createElement("a");
-                    link.href = `${API_URL}${result.download_url}`; // Backend returns redirect, valid for standard hrefs, but may trigger cross-origin blank tab.
                     // Alternativa: Fetch blob igual ao history.tsx
-                    axios.get(`${API_URL}${result.download_url}`, { responseType: 'blob' })
+                    axios.get(`${API_URL}${result.download_url}`, { responseType: 'arraybuffer' })
                       .then(res => {
-                        const url = window.URL.createObjectURL(new Blob([res.data]));
+                        const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+                        const url = window.URL.createObjectURL(blob);
                         link.href = url;
                         link.setAttribute('download', `${formData.title || 'documento'}.docx`);
                         document.body.appendChild(link);
                         link.click();
                         link.parentNode?.removeChild(link);
                       })
-                      .catch(() => alert('Erro ao baixar documento diretamente.'));
+                      .catch((err) => {
+                        console.error(err);
+                        alert('Erro ao baixar documento diretamente.');
+                      });
                   }} className="w-full py-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm transition-colors text-sm text-center focus:outline-none">
                     Baixar Arquivo
                   </button>

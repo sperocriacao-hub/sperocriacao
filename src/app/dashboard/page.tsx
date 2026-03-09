@@ -86,12 +86,13 @@ export default function Dashboard() {
 
         try {
             const response = await axios.get(`${API_URL}/api/v1/documents/preview/${doc.id}`, {
-                responseType: "blob"
+                responseType: "arraybuffer"
             });
             const docxContainer = document.getElementById("docx-preview-modal-container");
             if (docxContainer) {
                 docxContainer.innerHTML = "";
                 const docx = await import("docx-preview");
+                // Passa o arraybuffer bruto
                 await docx.renderAsync(response.data, docxContainer);
             }
         } catch (err: any) {
@@ -109,9 +110,10 @@ export default function Dashboard() {
     const handleDownload = async (docId: string, docTitle: string) => {
         try {
             const response = await axios.get(`${API_URL}/api/v1/documents/download/${docId}`, {
-                responseType: "blob",
+                responseType: "arraybuffer",
             });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
             link.setAttribute("download", `${docTitle}.docx`);
