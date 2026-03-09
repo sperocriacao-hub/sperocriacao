@@ -68,6 +68,7 @@ async def convert_document(
                 await upload_to_storage("documents", docx_path, f"docx/{docx_filename}", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
                 # Salvar no Supabase (Base de Dados)
+                supabase.table("document_conversions").insert({
                     "id": doc_id,
                     "user_id": user_id,
                     "client": client,
