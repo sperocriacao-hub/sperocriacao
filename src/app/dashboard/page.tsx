@@ -106,6 +106,24 @@ export default function Dashboard() {
         setPreviewDoc(null);
     };
 
+    const handleDownload = async (docId: string, docTitle: string) => {
+        try {
+            const response = await axios.get(`${API_URL}/api/v1/documents/download/${docId}`, {
+                responseType: "blob",
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `${docTitle}.docx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+        } catch (error) {
+            console.error("Erro ao baixar documento:", error);
+            alert("Erro ao baixar documento.");
+        }
+    };
+
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="flex flex-col items-center gap-3">
@@ -269,9 +287,9 @@ export default function Dashboard() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <a href={`${API_URL}/api/v1/documents/download/${doc.id}`} download className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Baixar DOCX">
+                                            <button onClick={() => handleDownload(doc.id, doc.title)} className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus:outline-none" title="Baixar DOCX">
                                                 <Download className="w-4 h-4" />
-                                            </a>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -301,9 +319,9 @@ export default function Dashboard() {
                                     <p className="text-xs text-gray-500 ml-7">Visualização rápida do layout transformado ({previewDoc.document_type})</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <a href={`${API_URL}/api/v1/documents/download/${previewDoc.id}`} download className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                    <button onClick={() => handleDownload(previewDoc.id, previewDoc.title)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors focus:outline-none">
                                         <Download className="w-4 h-4" /> Baixar
-                                    </a>
+                                    </button>
                                     <button onClick={closePreview} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-colors focus:outline-none">
                                         <X className="w-5 h-5" />
                                     </button>
