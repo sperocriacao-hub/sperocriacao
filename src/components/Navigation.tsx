@@ -18,7 +18,7 @@ export default function Navigation() {
                     <div className="flex shrink-0 items-center">
                         <Link href="/" className="flex items-center gap-3 focus:outline-none">
                             {/* O logo preenche o espaco mas mantem proporcoes */}
-                            <img src="/logo.png" alt="Spero Systems" className="h-8 max-w-[140px] object-contain" />
+                            <img src="/logo.png" alt="Spero Systems" className="h-10 sm:h-12 w-auto max-w-[200px] object-contain" />
                             <span className="font-semibold text-gray-400 text-sm hidden sm:block border-l border-gray-200 pl-3">
                                 Conversor
                             </span>
