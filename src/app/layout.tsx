@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Navigation from "../components/Navigation";
+import { AuthProvider } from "@/lib/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,22 +29,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <nav className="fixed top-0 w-full z-50 bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <div className="flex shrink-0 items-center font-bold text-lg text-gray-900 tracking-tight">
-                Conversor Analítico
-              </div>
-              <div className="flex gap-6">
-                <a href="/" className="text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors">Nova Conversão</a>
-                <a href="/dashboard" className="text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors">Resultados</a>
-              </div>
-            </div>
-          </div>
-        </nav>
-        <main className="pt-16">
-          {children}
-        </main>
+        <AuthProvider>
+          <Navigation />
+          <main className="pt-16">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
