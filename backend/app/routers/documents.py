@@ -5,7 +5,11 @@ from datetime import datetime
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from pdf2docx import Converter
+import fitz
+from docx import Document
+from docx.shared import Pt, Cm
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 
 from app.database import get_db
 
@@ -49,12 +53,57 @@ async def convert_document(
     start_time = datetime.now()
     
     try:
-        # A lib pdf2docx analisa a estrutura de blocos e reconstrói tabelas e parágrafos.
-        # Ajustes de parâmetros para ignorar imagens soltas/fundo que causam páginas brancas ou perda de layout.
-        # Usamos multi_processing e debug_mode disabled para ganhar velocidade.
-        cv = Converter(pdf_path)
-        cv.convert(docx_path, start=0, end=None, connected_border=False, debug=False)
-        cv.close()
+        # Novo Fluxo: Ler PDF com PyMuPDF, extrair texto puro, gerar DOCX de coluna única.
+        doc_pdf = fitz.open(pdf_path)
+        
+        # Cria um novo documento Word em branco
+        doc_word = Document()
+        
+        # Opcional: ajustar margens para dar mais largura a tabela
+        sections = doc_word.sections
+        for section in sections:
+            section.top_margin = Cm(2)
+            section.bottom_margin = Cm(2)
+            section.left_margin = Cm(2)
+            section.right_margin = Cm(2)
+
+        # Adiciona a tabela 1 Coluna / 0 Linhas
+        table = doc_word.add_table(rows=0, cols=1)
+        table.style = 'Table Grid'
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+        for page_num in range(len(doc_pdf)):
+            page = doc_pdf.load_page(page_num)
+            blocks = page.get_text("blocks")
+            
+            # Ordenar blocos da esquerda para a direita, cima para baixo
+            blocks.sort(key=lambda b: (b[1], b[0]))
+            
+            for b in blocks:
+                text = b[4].strip()
+                if not text:
+                    continue
+                
+                # Para evitar multiplos newlines dentro do mesmo bloco prejudicando o visual
+                # substitui as quebras de linha dentro do bloco por espaços simples.
+                clean_text = " ".join(text.split())
+                
+                if clean_text:
+                    # Adiciona uma nova linha à tabela
+                    row_cells = table.add_row().cells
+                    cell = row_cells[0]
+                    # Insere o parágrafo na célula
+                    p = cell.paragraphs[0]
+                    p.add_run(clean_text)
+                    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    
+                    # Estilo leve para não ficar colado às margens da célula
+                    p.paragraph_format.space_after = Pt(6)
+                    p.paragraph_format.space_before = Pt(6)
+
+        doc_pdf.close()
+        # Salva o resultado no local designado
+        doc_word.save(docx_path)
         
         processing_time = (datetime.now() - start_time).total_seconds()
         
